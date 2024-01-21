@@ -1,13 +1,10 @@
-import React, { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import { useState } from "react";
 import Modal from "./modal/Modal";
-import { UrlInput } from "./modal/UrlInput";
 import AudioPlayer from "./AudioPlayer";
 import { TranscribeButton } from "./TranscribeButton";
 import Constants from "../utils/Constants";
 import { Transcriber } from "../hooks/useTranscriber";
 import Progress from "./Progress";
-import AudioRecorder from "./AudioRecorder";
 
 function titleCase(str: string) {
     str = str.toLowerCase();
@@ -23,104 +20,7 @@ function titleCase(str: string) {
 // https://github.com/openai/whisper/blob/248b6cb124225dd263bb9bd32d060b6517e067f8/whisper/tokenizer.py#L79
 const LANGUAGES = {
     en: "english",
-    zh: "chinese",
     de: "german",
-    es: "spanish/castilian",
-    ru: "russian",
-    ko: "korean",
-    fr: "french",
-    ja: "japanese",
-    pt: "portuguese",
-    tr: "turkish",
-    pl: "polish",
-    ca: "catalan/valencian",
-    nl: "dutch/flemish",
-    ar: "arabic",
-    sv: "swedish",
-    it: "italian",
-    id: "indonesian",
-    hi: "hindi",
-    fi: "finnish",
-    vi: "vietnamese",
-    he: "hebrew",
-    uk: "ukrainian",
-    el: "greek",
-    ms: "malay",
-    cs: "czech",
-    ro: "romanian/moldavian/moldovan",
-    da: "danish",
-    hu: "hungarian",
-    ta: "tamil",
-    no: "norwegian",
-    th: "thai",
-    ur: "urdu",
-    hr: "croatian",
-    bg: "bulgarian",
-    lt: "lithuanian",
-    la: "latin",
-    mi: "maori",
-    ml: "malayalam",
-    cy: "welsh",
-    sk: "slovak",
-    te: "telugu",
-    fa: "persian",
-    lv: "latvian",
-    bn: "bengali",
-    sr: "serbian",
-    az: "azerbaijani",
-    sl: "slovenian",
-    kn: "kannada",
-    et: "estonian",
-    mk: "macedonian",
-    br: "breton",
-    eu: "basque",
-    is: "icelandic",
-    hy: "armenian",
-    ne: "nepali",
-    mn: "mongolian",
-    bs: "bosnian",
-    kk: "kazakh",
-    sq: "albanian",
-    sw: "swahili",
-    gl: "galician",
-    mr: "marathi",
-    pa: "punjabi/panjabi",
-    si: "sinhala/sinhalese",
-    km: "khmer",
-    sn: "shona",
-    yo: "yoruba",
-    so: "somali",
-    af: "afrikaans",
-    oc: "occitan",
-    ka: "georgian",
-    be: "belarusian",
-    tg: "tajik",
-    sd: "sindhi",
-    gu: "gujarati",
-    am: "amharic",
-    yi: "yiddish",
-    lo: "lao",
-    uz: "uzbek",
-    fo: "faroese",
-    ht: "haitian creole/haitian",
-    ps: "pashto/pushto",
-    tk: "turkmen",
-    nn: "nynorsk",
-    mt: "maltese",
-    sa: "sanskrit",
-    lb: "luxembourgish/letzeburgesch",
-    my: "myanmar/burmese",
-    bo: "tibetan",
-    tl: "tagalog",
-    mg: "malagasy",
-    as: "assamese",
-    tt: "tatar",
-    haw: "hawaiian",
-    ln: "lingala",
-    ha: "hausa",
-    ba: "bashkir",
-    jw: "javanese",
-    su: "sundanese",
 };
 
 export enum AudioSource {
@@ -140,116 +40,13 @@ export function AudioManager(props: { transcriber: Transcriber }) {
           }
         | undefined
     >(undefined);
-    const [audioDownloadUrl, setAudioDownloadUrl] = useState<
-        string | undefined
-    >(undefined);
 
     const isAudioLoading = progress !== undefined;
-
-    const resetAudio = () => {
-        setAudioData(undefined);
-        setAudioDownloadUrl(undefined);
-    };
-
-    const setAudioFromDownload = async (
-        data: ArrayBuffer,
-        mimeType: string,
-    ) => {
-        const audioCTX = new AudioContext({
-            sampleRate: Constants.SAMPLING_RATE,
-        });
-        const blobUrl = URL.createObjectURL(
-            new Blob([data], { type: "audio/*" }),
-        );
-        const decoded = await audioCTX.decodeAudioData(data);
-        setAudioData({
-            buffer: decoded,
-            url: blobUrl,
-            source: AudioSource.URL,
-            mimeType: mimeType,
-        });
-    };
-
-    const setAudioFromRecording = async (data: Blob) => {
-        resetAudio();
-        setProgress(0);
-        const blobUrl = URL.createObjectURL(data);
-        const fileReader = new FileReader();
-        fileReader.onprogress = (event) => {
-            setProgress(event.loaded / event.total || 0);
-        };
-        fileReader.onloadend = async () => {
-            const audioCTX = new AudioContext({
-                sampleRate: Constants.SAMPLING_RATE,
-            });
-            const arrayBuffer = fileReader.result as ArrayBuffer;
-            const decoded = await audioCTX.decodeAudioData(arrayBuffer);
-            setProgress(undefined);
-            setAudioData({
-                buffer: decoded,
-                url: blobUrl,
-                source: AudioSource.RECORDING,
-                mimeType: data.type,
-            });
-        };
-        fileReader.readAsArrayBuffer(data);
-    };
-
-    const downloadAudioFromUrl = async (
-        requestAbortController: AbortController,
-    ) => {
-        if (audioDownloadUrl) {
-            try {
-                setAudioData(undefined);
-                setProgress(0);
-                const { data, headers } = (await axios.get(audioDownloadUrl, {
-                    signal: requestAbortController.signal,
-                    responseType: "arraybuffer",
-                    onDownloadProgress(progressEvent) {
-                        setProgress(progressEvent.progress || 0);
-                    },
-                })) as {
-                    data: ArrayBuffer;
-                    headers: { "content-type": string };
-                };
-
-                let mimeType = headers["content-type"];
-                if (!mimeType || mimeType === "audio/wave") {
-                    mimeType = "audio/wav";
-                }
-                setAudioFromDownload(data, mimeType);
-            } catch (error) {
-                console.log("Request failed or aborted", error);
-            } finally {
-                setProgress(undefined);
-            }
-        }
-    };
-
-    // When URL changes, download audio
-    useEffect(() => {
-        if (audioDownloadUrl) {
-            const requestAbortController = new AbortController();
-            downloadAudioFromUrl(requestAbortController);
-            return () => {
-                requestAbortController.abort();
-            };
-        }
-    }, [audioDownloadUrl]);
 
     return (
         <>
             <div className='flex flex-col justify-center items-center rounded-lg bg-white shadow-xl shadow-black/5 ring-1 ring-slate-700/10'>
                 <div className='flex flex-row space-x-2 py-2 w-full px-2'>
-                    <UrlTile
-                        icon={<AnchorIcon />}
-                        text={"From URL"}
-                        onUrlUpdate={(e) => {
-                            props.transcriber.onInputChange();
-                            setAudioDownloadUrl(e);
-                        }}
-                    />
-                    <VerticalBar />
                     <FileTile
                         icon={<FolderIcon />}
                         text={"From file"}
@@ -263,19 +60,6 @@ export function AudioManager(props: { transcriber: Transcriber }) {
                             });
                         }}
                     />
-                    {navigator.mediaDevices && (
-                        <>
-                            <VerticalBar />
-                            <RecordTile
-                                icon={<MicrophoneIcon />}
-                                text={"Record"}
-                                setAudioData={(e) => {
-                                    props.transcriber.onInputChange();
-                                    setAudioFromRecording(e);
-                                }}
-                            />
-                        </>
-                    )}
                 </div>
                 {
                     <AudioDataBar
@@ -375,8 +159,8 @@ function SettingsModal(props: {
         'Xenova/whisper-medium': [776],
 
         // Distil Whisper (English-only)
-        'distil-whisper/distil-medium.en': [402],
-        'distil-whisper/distil-large-v2': [767],
+        // 'distil-whisper/distil-medium.en': [402],
+        // 'distil-whisper/distil-large-v2': [767],
     };
     return (
         <Modal
@@ -405,9 +189,7 @@ function SettingsModal(props: {
                                 )
                             )
                             .map((key) => (
-                                <option key={key} value={key}>{`${key}${
-                                    (props.transcriber.multilingual || key.startsWith('distil-whisper/')) ? "" : ".en"
-                                } (${
+                                <option key={key} value={key}>{`${key.slice(key.indexOf('/')+1)} (${
                                     // @ts-ignore
                                     models[key][
                                         props.transcriber.quantized ? 0 : 1
@@ -415,7 +197,7 @@ function SettingsModal(props: {
                                 }MB)`}</option>
                             ))}
                     </select>
-                    <div className='flex justify-between items-center mb-3 px-1'>
+                    {/* <div className='flex justify-between items-center mb-3 px-1'>
                         <div className='flex'>
                             <input
                                 id='multilingual'
@@ -446,7 +228,7 @@ function SettingsModal(props: {
                                 Quantized
                             </label>
                         </div>
-                    </div>
+                    </div> */}
                     {props.transcriber.multilingual && (
                         <>
                             <label>Select the source language.</label>
@@ -465,7 +247,7 @@ function SettingsModal(props: {
                                     </option>
                                 ))}
                             </select>
-                            <label>Select the task to perform.</label>
+                            {/* <label>Select the task to perform.</label>
                             <select
                                 className='mt-1 mb-3 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500'
                                 defaultValue={props.transcriber.subtask}
@@ -479,7 +261,7 @@ function SettingsModal(props: {
                                 <option value={"translate"}>
                                     Translate (to English)
                                 </option>
-                            </select>
+                            </select> */}
                         </>
                     )}
                 </>
@@ -488,10 +270,6 @@ function SettingsModal(props: {
             onSubmit={() => {}}
         />
     );
-}
-
-function VerticalBar() {
-    return <div className='w-[1px] bg-slate-200'></div>;
 }
 
 function AudioDataBar(props: { progress: number }) {
@@ -509,66 +287,6 @@ function ProgressBar(props: { progress: string }) {
     );
 }
 
-function UrlTile(props: {
-    icon: JSX.Element;
-    text: string;
-    onUrlUpdate: (url: string) => void;
-}) {
-    const [showModal, setShowModal] = useState(false);
-
-    const onClick = () => {
-        setShowModal(true);
-    };
-
-    const onClose = () => {
-        setShowModal(false);
-    };
-
-    const onSubmit = (url: string) => {
-        props.onUrlUpdate(url);
-        onClose();
-    };
-
-    return (
-        <>
-            <Tile icon={props.icon} text={props.text} onClick={onClick} />
-            <UrlModal show={showModal} onSubmit={onSubmit} onClose={onClose} />
-        </>
-    );
-}
-
-function UrlModal(props: {
-    show: boolean;
-    onSubmit: (url: string) => void;
-    onClose: () => void;
-}) {
-    const [url, setUrl] = useState(Constants.DEFAULT_AUDIO_URL);
-
-    const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setUrl(event.target.value);
-    };
-
-    const onSubmit = () => {
-        props.onSubmit(url);
-    };
-
-    return (
-        <Modal
-            show={props.show}
-            title={"From URL"}
-            content={
-                <>
-                    {"Enter the URL of the audio file you want to load."}
-                    <UrlInput onChange={onChange} value={url} />
-                </>
-            }
-            onClose={props.onClose}
-            submitText={"Load"}
-            onSubmit={onSubmit}
-        />
-    );
-}
-
 function FileTile(props: {
     icon: JSX.Element;
     text: string;
@@ -582,6 +300,7 @@ function FileTile(props: {
 
     // Create hidden input element
     let elem = document.createElement("input");
+    elem.accept = ".wav,.m4a,.mp3";
     elem.type = "file";
     elem.oninput = (event) => {
         // Make sure we have files to use
@@ -622,79 +341,6 @@ function FileTile(props: {
     );
 }
 
-function RecordTile(props: {
-    icon: JSX.Element;
-    text: string;
-    setAudioData: (data: Blob) => void;
-}) {
-    const [showModal, setShowModal] = useState(false);
-
-    const onClick = () => {
-        setShowModal(true);
-    };
-
-    const onClose = () => {
-        setShowModal(false);
-    };
-
-    const onSubmit = (data: Blob | undefined) => {
-        if (data) {
-            props.setAudioData(data);
-            onClose();
-        }
-    };
-
-    return (
-        <>
-            <Tile icon={props.icon} text={props.text} onClick={onClick} />
-            <RecordModal
-                show={showModal}
-                onSubmit={onSubmit}
-                onClose={onClose}
-            />
-        </>
-    );
-}
-
-function RecordModal(props: {
-    show: boolean;
-    onSubmit: (data: Blob | undefined) => void;
-    onClose: () => void;
-}) {
-    const [audioBlob, setAudioBlob] = useState<Blob>();
-
-    const onRecordingComplete = (blob: Blob) => {
-        setAudioBlob(blob);
-    };
-
-    const onSubmit = () => {
-        props.onSubmit(audioBlob);
-        setAudioBlob(undefined);
-    };
-
-    const onClose = () => {
-        props.onClose();
-        setAudioBlob(undefined);
-    };
-
-    return (
-        <Modal
-            show={props.show}
-            title={"From Recording"}
-            content={
-                <>
-                    {"Record audio using your microphone"}
-                    <AudioRecorder onRecordingComplete={onRecordingComplete} />
-                </>
-            }
-            onClose={onClose}
-            submitText={"Load"}
-            submitEnabled={audioBlob !== undefined}
-            onSubmit={onSubmit}
-        />
-    );
-}
-
 function Tile(props: {
     icon: JSX.Element;
     text?: string;
@@ -712,24 +358,6 @@ function Tile(props: {
                 </div>
             )}
         </button>
-    );
-}
-
-function AnchorIcon() {
-    return (
-        <svg
-            xmlns='http://www.w3.org/2000/svg'
-            fill='none'
-            viewBox='0 0 24 24'
-            strokeWidth='1.5'
-            stroke='currentColor'
-        >
-            <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                d='M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244'
-            />
-        </svg>
     );
 }
 
@@ -769,24 +397,6 @@ function SettingsIcon() {
                 strokeLinecap='round'
                 strokeLinejoin='round'
                 d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-            />
-        </svg>
-    );
-}
-
-function MicrophoneIcon() {
-    return (
-        <svg
-            xmlns='http://www.w3.org/2000/svg'
-            fill='none'
-            viewBox='0 0 24 24'
-            strokeWidth={1.5}
-            stroke='currentColor'
-        >
-            <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                d='M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z'
             />
         </svg>
     );
