@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "./modal/Modal";
 import AudioPlayer from "./AudioPlayer";
 import { TranscribeButton } from "./TranscribeButton";
@@ -40,6 +40,16 @@ export function AudioManager(props: { transcriber: Transcriber }) {
           }
         | undefined
     >(undefined);
+    const [counter, setCounter] = useState(0);
+
+    useEffect(() => {
+        if (props.transcriber.isBusy) {
+            const timer = setTimeout(() => {
+                setCounter(prevCounter => prevCounter + 1);
+            }, 1000);
+            return () => clearTimeout(timer); // Clear the timeout if the component unmounts
+        }
+    }, [counter]);
 
     const isAudioLoading = progress !== undefined;
 
@@ -78,6 +88,7 @@ export function AudioManager(props: { transcriber: Transcriber }) {
                         <TranscribeButton
                             onClick={() => {
                                 props.transcriber.start(audioData.buffer);
+                                setCounter(counter + 1);
                             }}
                             isModelLoading={props.transcriber.isModelLoading}
                             // isAudioLoading ||
@@ -103,6 +114,13 @@ export function AudioManager(props: { transcriber: Transcriber }) {
                                     />
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {audioData.buffer.duration > 0 && (
+                        <div>
+                            <p className='text-center mt-5 text-sm text-gray-500 dark:text-gray-4'>
+                                Elapsed time: {counter} seconds
+                            </p>
                         </div>
                     )}
                 </>
