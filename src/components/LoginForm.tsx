@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import bcrypt from 'bcryptjs';
+const bcrypt = require('bcryptjs');
 
 interface Props {
   onAuthentication: any;
@@ -22,7 +22,7 @@ const LoginForm = ({ onAuthentication }: Props) => {
       }
 
       // Hash the user's password and compare it to the stored hash
-      const isMatch = await bcrypt.compare(password, credentials[username]);
+      const isMatch = await bcrypt.compare(password, credentials[username as keyof typeof credentials]);
 
       if (!isMatch) {
         throw new Error('Invalid username or password');
