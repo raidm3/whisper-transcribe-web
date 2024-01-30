@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-const bcrypt = require('bcryptjs');
+import bcrypt from 'bcryptjs';
 
 interface Props {
   onAuthentication: any;

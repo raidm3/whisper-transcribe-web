@@ -88,7 +88,7 @@ export function AudioManager(props: { transcriber: Transcriber }) {
                         <TranscribeButton
                             onClick={() => {
                                 props.transcriber.start(audioData.buffer);
-                                setCounter(counter + 1);
+                                setCounter(1);
                             }}
                             isModelLoading={props.transcriber.isModelLoading}
                             // isAudioLoading ||
@@ -119,7 +119,7 @@ export function AudioManager(props: { transcriber: Transcriber }) {
                     {audioData.buffer.duration > 0 && (
                         <div>
                             <p className='text-center mt-5 text-sm text-gray-500 dark:text-gray-4'>
-                                Elapsed time: {counter} seconds
+                                Elapsed time: { Math.floor(counter / 60) }:{ String(counter % 60).padStart(2, '0') }
                             </p>
                         </div>
                     )}
@@ -175,6 +175,7 @@ function SettingsModal(props: {
         'Xenova/whisper-base': [77, 291],
         'Xenova/whisper-small': [249],
         'Xenova/whisper-medium': [776],
+        'Xenova/whisper-large-v3': [1500],
 
         // Distil Whisper (English-only)
         // 'distil-whisper/distil-medium.en': [402],
